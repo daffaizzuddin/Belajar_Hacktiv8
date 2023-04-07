@@ -1,0 +1,308 @@
+# Assignment Python 1 
+
+Link Repository : https://github.com/daffaizzuddin/Belajar_Hacktiv8.git
+
+## Project Overview
+The aim of this projects is to introduce you to data visualization with Python as concrete and as consistent as possible. Using what you’ve learned; download the London Crime Dataset from Kaggle. This dataset is a record of crime in major metropolitan areas, such as London, occurs in distinct patterns. This data covers the number of criminal reports by month, LSOA borough, and major/minor category from Jan 2008-Dec 2016.
+
+
+This dataset contains:
+
+
+- lsoa_code: this represents a policing area
+- borough: the london borough for which the statistic is related
+- major_category: the major crime category
+- minor_category: the minor crime category
+- value: the count of the crime for that particular borough, in that particular month
+- year: the year of the summary statistic
+- month: the month of the summary statistic
+
+
+Formulate a question and derive a statistical hypothesis test to answer the question. You have to demonstrate that you’re able to make decisions using data in a scientific manner. And the important things, Visualized the data. Examples of questions can be:
+
+- What is the change in the number of crime incidents from 2011 to 2016?
+- What were the top 3 crimes per borough in 2016?
+## Import Library
+Before we start, we have to import the libraries that we going to use.
+import pandas as pd # primary data structure library
+import numpy as np # useful for many scientific computing in Python
+%matplotlib inline 
+import matplotlib.pyplot as plt 
+import matplotlib as mpl
+from wordcloud import WordCloud, STOPWORDS
+from PIL import Image # to convert image into arrays
+import folium
+
+print('Libraries are already imported!')
+## Import Dataset
+df = pd.read_csv("/Users/ASUS/Hacktiv8/data/london_crime_by_lsoa.csv")
+
+print('Dataset is ready!')
+## Exploratory Data Analysis
+After that, we explore the datasets to gain information inside
+
+First, view the top 5 rows of dataset
+df.head()
+Dataset has 7 columns.
+
+We also want to view the bottom 5 rows of the dataset
+df.tail()
+Dataset index reach to 13490603 which means there are 13490604 rows.
+
+Then, we are going to view all columns and data type
+df.info()
+As default, there are 3 columns of int type.
+
+Next, view header list
+df.columns.values
+View index list
+df.index.values
+View shape of dataset
+df.shape
+This dataset has 13490604 rows and 7 columns, which is in accordance with what was explained earlier
+
+Then, view statistics descriptive of each columns for object type
+df.describe(include='O')
+View statistics descriptive of int type columns
+df.describe()
+Check missing value
+df.isnull().sum()
+Check duplicate data
+df.duplicated()
+View unique value of each columns
+print('borough: ', df['borough'].unique())
+print('major_category: ', df['major_category'].unique())
+print('minor_category: ', df['minor_category'].unique())
+print('value: ', df['value'].unique())
+print('year: ', df['year'].unique())
+print('month: ', df['month'].unique())
+## Pre-processing & Visualization
+We are going to visualize the dataset, also doing pre-processing data based on the cases.
+### Area Plot
+Question: Which boroughs have the highest cumulative rate of annual and monthly criminal cases?
+Create a required dataframe
+ap1 = df.pivot_table(index='year', columns ='borough', values='value', aggfunc=sum)
+ap1
+Create a required dataframe
+ap2 = df.pivot_table(index='month', columns ='borough', values='value', aggfunc=sum)
+ap2
+Make sure there is no missing value in dataframe
+ap1.isnull().sum()
+Make sure there is no missing value in dataframe
+ap2.isnull().sum()
+Create area plots
+ap1.plot(kind='area', 
+             alpha=0.25, # 0-1, default value a= 0.5
+             stacked=False,
+             figsize=(20, 10)
+        )
+
+plt.title('Sum of Criminal Cases per Borough')
+plt.ylabel('Number of Criminal Cases')
+plt.xlabel('Years')
+
+plt.show()
+Insight: From area plot above, we can conclude that Westminster is the highest cumulative rate of annual criminal cases and there was a significant increase in cases in 2012.
+ap2.plot(kind='area', 
+             alpha=0.25, # 0-1, default value a= 0.5
+             stacked=False,
+             figsize=(20, 10),
+            )
+
+plt.title('Sum of Criminal Cases per Borough')
+plt.ylabel('Number of Criminal Cases')
+plt.xlabel('Month')
+
+plt.show()
+Insight: From area plot above, we can conclude that Westminster is the highest cumulative rate of monthly criminal cases. Time series data movements tend to go up and down, but seems still stationary on mean.
+### Histogram
+Question: What is the frequency distribution of the top 3 number criminal cases from the London's borough in 2008-2013?
+Create the required dataframe
+ht1 = df[df['year'] <= 2013]
+ht1
+Pre-processing the dataset so we have top 3 borough that has highest criminal cases
+ht1 = ht1.pivot_table(index='borough', columns='year', values='value', aggfunc='sum')
+ht1['Total'] = ht1.sum(axis=1)
+ht1.sort_values(['Total'], ascending=False, axis=0, inplace=True)
+ht1_top3 = ht1.drop('Total', axis=1, inplace=True)
+ht1_top3 = ht1.head(n=3).transpose()
+ht1_top3
+
+Generate histogram
+ht1_top3.plot(kind='hist', figsize=(10, 6))
+
+plt.title('Histogram of Criminal Cases from Westminster, Lambeth, Camden from 2008-2013')
+plt.ylabel('Number of Years')
+plt.xlabel('Number of Criminal Cases')
+
+plt.show()
+Generate histogram
+# let's get the x-tick values
+count, bin_edges = np.histogram(ht1_top3, 15)
+
+# un-stacked histogram
+ht1_top3.plot(kind ='hist', 
+          figsize=(10, 6),
+          bins=15,
+          alpha=0.6,
+          xticks=bin_edges,
+          color=['coral', 'darkslateblue', 'mediumseagreen']
+         )
+
+plt.title('Histogram of Criminal Cases from Westminster, Lambeth, Camden from 2008-2013')
+plt.ylabel('Number of Years')
+plt.xlabel('Number of Criminal Cases')
+
+plt.show()
+Insight: From histogram above, we can conclude that the criminal cases frequency distribution of Westminster tends to spread than Lambeth and Camden.
+### Bar Chart
+Question: Create a horizontal bar plot showing the top 10 of total criminal cases in London for the period 2008 - 2016.
+Create the required dataframe
+bc1 = df.pivot_table(index='borough', columns='year', values='value', aggfunc='sum')
+bc1['Total'] = bc1.sum(axis=1)
+bc1.sort_values(['Total'], ascending=False, axis=0, inplace=True)
+bc1_top10 = bc1['Total'].head(n=10)
+bc1_top10
+Create Horizontal Bar Plot
+bc1_top10.plot(kind='barh', figsize=(12, 12), color='steelblue')
+plt.xlabel('Number of Criminal Cases')
+plt.title('Top 10 Borough to the Criminal Cases between 2008-2016')
+# for index, value in enumerate(df_top15): 
+#     label = format(int(value), ',') # format int with commas
+#     # place text at the end of bar (subtracting 47000 from x, and 0.1 from y to make it fit within the bar)
+#     plt.annotate(label, xy=(value - 47000, index - 0.10), color='white')
+plt.show()
+Insight: From the horizontal bar plot above, we know that Westminster has the highest of total criminal cases, and followed by Lambeth, Southwark, Camden,  Newham, Croydon, Ealing, Islington, Tower Hamlets, Brent as top 10thof total criminal cases
+### Pie Chart
+Question: How is the percentage of major and minor criminal category that occurs in London?
+Make the required dataframe
+pc1 = df['major_category'].value_counts()
+Make the required dataframe
+pc2 = df['minor_category'].value_counts()
+Create Pice Chart
+explode_list = [0.1, 0, 0, 0, 0.1, 0, 0.1, 0, 0.2] # ratio for each continent with which to offset each wedge.
+
+pc1.plot(kind='pie',
+         figsize=(15, 6),
+         autopct='%1.1f%%', 
+         startangle=90,    
+         shadow=True,       
+         labels=None,         # turn off labels on pie chart
+         pctdistance=1.12,    # the ratio between the center of each pie slice and the start of the text generated by autopct 
+         explode=explode_list # 'explode' lowest 3 continents
+         )
+
+# scale the title up by 12% to match pctdistance
+plt.title('Major Category of London Criminal Cases', y=1.12) 
+
+plt.axis('equal') 
+
+# add legend
+plt.legend(labels=df['major_category'].unique(), loc='upper left') 
+
+plt.show()
+Insight: From the pie chart above, we know that Burglary is the most often appears as a major category with 29.4%, while sex is the opposite with 0.8%.
+Create Pice Chart
+pc2.plot(kind='pie',
+         figsize=(15, 6),
+         autopct='%1.1f%%', 
+         startangle=90,    
+         shadow=True,       
+         labels=None,         # turn off labels on pie chart
+         pctdistance=1.12,    # the ratio between the center of each pie slice and the start of the text generated by autopct 
+         )
+
+# scale the title up by 12% to match pctdistance
+plt.title('Major Category of London Criminal Cases', y=1.12) 
+
+plt.axis('equal') 
+
+# add legend
+plt.legend(labels=df['minor_category'].unique(), loc='upper left') 
+
+plt.show()
+Insight: From the pie chart above, we know that most of minor category appeare in same percentage.
+### Box Plot
+Question: Create a box plot to visualize the distribution of total criminal cases in each year of Borough.
+Create the required dataframe
+bp1 = df.pivot_table(index='borough', columns='year', values='value', aggfunc=sum)
+bp1.head()
+Create Horizontal Box Plot
+bp1.plot(kind='box', figsize=(10, 7), color='blue', vert=True)
+
+plt.title('Box plots of London Criminal Cases each Year')
+plt.xlabel('Year')
+plt.ylabel('Number of Cases')
+
+plt.show()
+Insight: From the box plot above, shows us that distribution of total criminal cases tends to be the same annually, but in 2012 it had a distribution that tended to be wider. There are outliers at the top and bottom of the box plot range, namely the existence of boroughs with 0 cases and there are also boroughs that have very high cases every year.
+### Scatter Plot
+Question: Create a scatter plot of the London's total criminal cases in period 2008-2013
+Create a required dataframe
+sp1 = df.pivot_table(index='year', columns='borough', values='value', aggfunc=sum)
+sp1['Total'] = sp1.sum(axis=1)
+sp11 = sp1[['Total']]
+sp11.reset_index(inplace=True)
+sp11
+Make sure that Total column is correct
+print('Total: ',sp1.Total.sum())
+print('Value: ',df.value.sum())
+Create a scatter plot
+sp11.plot(kind='scatter', x='year', y='Total', figsize=(10, 6), color='darkblue')
+
+plt.title('Total London Criminal Cases from 2008 - 2016')
+plt.xlabel('Year')
+plt.ylabel('Number of Cases')
+
+plt.show()
+Insight: From  the scatter plot above, we can conclude that the difference is not very significant between years.
+### Word Clouds
+Question: What words of major categories that often appear in criminal cases in London?
+Create list
+wc1 = df['major_category']
+We are going to visualize word clouds with mask, so before run the code below, get the london mask file and put in the same folder with this notebook.
+london_mask = np.array(Image.open("/Users/ASUS/Hacktiv8/Belajar_Hacktiv8/Assignment/Assgn_1/data/london_mask.png"))
+fig = plt.figure()
+fig.set_figwidth(14) # set width
+fig.set_figheight(18) # set height
+
+plt.imshow(london_mask, cmap=plt.cm.gray, interpolation='bilinear')
+plt.axis('off')
+plt.show()
+Set stopword
+stopwords = set(STOPWORDS)
+Create word clouds
+# instantiate a word cloud object
+london_wc = WordCloud(background_color='white', mask=london_mask, stopwords=stopwords)
+
+# generate the word cloud
+london_wc.generate(' '.join(wc1.values))
+
+# display the word cloud
+fig = plt.figure()
+fig.set_figwidth(14) # set width
+fig.set_figheight(18) # set height
+
+plt.imshow(london_wc, interpolation='bilinear')
+plt.axis('off')
+plt.show()
+Insight: From word clouds above, we know that Criminal, Damage, Handling, and Theft has largest font size, it means that those words often appears in major category criminal cases.
+### Folium Maps
+Question: Create a Folium Map of London
+Define the world map centered around London with a 9 zoom level
+world_map = folium.Map(location=[51.50209939078944, -0.12486231307153765], zoom_start=9)
+
+world_map
+Create a Stamen Toner map of the world centered around London
+world_map = folium.Map(location=[51.50209939078944, -0.12486231307153765], zoom_start=13, tiles='Stamen Toner')
+
+world_map
+Create a Stamen Terrain map of the world centered around London
+world_map = folium.Map(location=[51.50209939078944, -0.12486231307153765], zoom_start=13, tiles='Stamen Terrain')
+
+world_map
+Insight: From folium maps above, we can know a visualization of the London's geographical location
+---
+# Overall Analysis
+
+Based on data visualization that has been carried out on criminal case data in London in 2008-2013, information is obtained that there are various criminal cases with various categories that occurred in London. The most frequent cases are Robbery and Westminster being the area with the most cases. The distribution of data each year tends to be the same.
