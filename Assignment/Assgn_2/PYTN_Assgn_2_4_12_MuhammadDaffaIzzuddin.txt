@@ -1,0 +1,227 @@
+# Assignment Python 2
+
+Link Repository : https://github.com/daffaizzuddin/Belajar_Hacktiv8.git
+
+# Background
+
+This dataset contains the location, address, type, sale price, and sale date of building units sold. A reference on the trickier fields:
+* BOROUGH : A digit code for the borough the property is located in; in order these are Manhattan (1), Bronx (2), Brooklyn (3), Queens (4), and Staten Island (5).
+* BLOCK; LOT :The combination of borough, block, and lot forms a unique key for property in New York City. Commonly called a BBL.
+* BUILDING CLASS AT PRESENT and BUILDING CLASS AT TIME OF SALE: : The type of building at various points in time.
+
+
+Note that because this is a financial transaction dataset, there are some points that need to be kept in mind:
+* Many sales occur with a nonsensically small dollar amount: $0 most commonly. These sales are actually transfers of deeds between parties: for example, parents transferring ownership to their home to a child after moving out for retirement.
+* This dataset uses the financial definition of a building/building unit, for tax purposes. In case a single entity owns the building in question, a sale covers the value of the entire building. In case a building is owned piecemeal by its residents (a condominium), a sale refers to a single apartment (or group of apartments) owned by some individual.
+
+## Import Libraries
+import pandas as pd # primary data structure library
+import numpy as np # useful for many scientific computing in Python
+%matplotlib inline 
+import matplotlib.pyplot as plt
+import string
+import seaborn as sns
+import datetime
+import statsmodels.api as sm
+
+import warnings
+warnings.filterwarnings("ignore")
+%matplotlib inline
+df = pd.read_csv('/Users/ASUS/Hacktiv8/data/nyc-rolling-sales.csv', skipinitialspace=True)
+df
+df.info()
+df.shape
+df.isnull().sum().sort_values(ascending=False)
+# drop'Unnamed: 0' karena kolom tidak terkait dengan proses analitis
+df.drop('Unnamed: 0', axis=1, inplace=True)
+# Kolom 'EASE-MENT' kosong dan dapat dihapus
+df.drop('EASE-MENT', axis=1, inplace=True)
+
+# drop kolom tidak releva ke statistical data analysis
+df.drop(labels=['ADDRESS','APARTMENT NUMBER', 'ZIP CODE'], axis=1, inplace=True)
+#'SALE PRICE' harus numerik, nilai yang hilang akan ubah ke NaN
+df['SALE PRICE']= pd.to_numeric(df['SALE PRICE'], errors='coerce')
+
+# 'LAND SQUARE FEET' dan 'GROSS SQUARE FEET' harus numerik
+df['LAND SQUARE FEET'] = pd.to_numeric(df['LAND SQUARE FEET'], errors='coerce')
+df['GROSS SQUARE FEET'] = pd.to_numeric(df['GROSS SQUARE FEET'], errors='coerce')
+
+# 'SALE DATE' harus tanggal waktu
+df['SALE DATE']=pd.to_datetime(df['SALE DATE'], errors='coerce')
+
+# kolom disini harus bersifat kategoris
+categorical = ['NEIGHBORHOOD', 'BUILDING CLASS CATEGORY', 'TAX CLASS AT PRESENT', 'BUILDING CLASS AT PRESENT',
+         'BUILDING CLASS AT TIME OF SALE', 'TAX CLASS AT TIME OF SALE']
+for col in categorical:
+    df[col] = df[col].astype('category')
+df.info()
+df
+sum(df.duplicated())
+df=df.drop_duplicates(df.columns, keep='last')
+sum(df.duplicated())
+missing_value = df.isnull().sum()/len(df)*100
+print(pd.DataFrame([missing_value[missing_value>0], pd.Series(df.isnull().sum()[df.isnull().sum()>1000])],
+                  index=['percent missing', 'num of missing']))
+terdapat sekitar 30% missing value yang terdapat pada LAND and GROSS SQUARE FEET, dan terdapat sekitar 17% missing value pada column SALE PRICE.  
+df['SALE PRICE'].describe()
+karena ada banyak nilai nan di kolom 'SALE PRICE', Plot data dan lihat outliernya
+# hapus semua nilai null
+df=df[df['SALE PRICE'].notnull()]
+df=df[df['LAND SQUARE FEET'].notnull()]
+df=df[df['GROSS SQUARE FEET'].notnull()]
+# get data property proportion
+x= df[['SALE PRICE']].sort_values(by='SALE PRICE').reset_index()
+x['PROPERTY PROPORTION']= 1
+x['PROPERTY PROPORTION']= x['PROPERTY PROPORTION'].cumsum()
+x['PROPERTY PROPORTION'] = 100 * x['PROPERTY PROPORTION']/len(x['PROPERTY PROPORTION'])
+
+# set size for the plot
+plt.figure(figsize=(10,6))
+
+# plot the data
+plt.plot(x['PROPERTY PROPORTION'], x['SALE PRICE'], linestyle=None, marker='*')
+plt.title("Cumulative Distribution of Properties based on Price")
+plt.xlabel("Percentage of Properties based on Price ")
+plt.ylabel("Sale Price")
+plt.ticklabel_format(style='plain',axis='y')
+plt.show()
+Untuk menghilangkan outliers kita bisa mengambil data antara 100.000 USD sampai 5000.000 USD
+df= df[(df['SALE PRICE']>100000) & (df['SALE PRICE']<5000000)]
+# lakukan hal yang sama seperti sebelumnya untuk mendapatkan proporsi properti data dan memplot datanya, lalu lihat hasilnya
+x = df[['SALE PRICE']].sort_values(by='SALE PRICE').reset_index()
+x['PROPERTY PROPORTION']= 1
+x['PROPERTY PROPORTION']= x['PROPERTY PROPORTION'].cumsum()
+x['PROPERTY PROPORTION'] = 100 * x['PROPERTY PROPORTION']/len(x['PROPERTY PROPORTION'])
+
+plt.figure(figsize=(10,6))
+
+plt.plot(x['PROPERTY PROPORTION'], x['SALE PRICE'], linestyle=None, marker='*')
+plt.title("Cumulative Distribution of Properties based on Price")
+plt.xlabel("Percentage of Properties based on Price ")
+plt.ylabel("Sale Price")
+plt.ticklabel_format(style='plain',axis='y')
+plt.show()
+
+Data distribusi sudah tidak ada outliers
+# plot curve menggunakan boxplot untuk melihat tampilan lain dari data
+plt.figure(figsize=(10,6))
+sns.boxplot(x='SALE PRICE', data=df)
+plt.ticklabel_format(style='plain', axis='x')
+plt.title("Boxplot of SALE PRICE (USD)")
+plt.show()
+
+ploting menggunakan kurva boxplot dapat kita lihat sudah tidak ada outliers, data sudah lebih baik
+mean = df['SALE PRICE'].mean()
+median= df['SALE PRICE'].median()
+print(mean)
+print(median)
+# melihat distribution of the data, apakah data tersebut skewness atau normal distribution
+plt.figure(figsize=(10,6))
+sns.distplot(df['SALE PRICE'])
+plt.title('Histogram of Sale Price (USD)')
+plt.ylabel("Frequncy")
+plt.axvline(df[(df['SALE PRICE']>100000) & (df['SALE PRICE'] < 5000000)]['SALE PRICE'].mean(), c='red')
+plt.axvline(df[(df['SALE PRICE']>100000) & (df['SALE PRICE'] < 5000000)]['SALE PRICE'].median(), c='blue')
+plt.text(200000,0.0000013, "median")
+plt.text(850000,0.0000011, "mean")
+plt.show()
+Sebaran data diatas menunjukkan adanya positive skewness karena nilai Mean lebih besar daripada Median
+# normalize the data
+df['SALE PRICE']=np.log(df['SALE PRICE'])
+print(df['SALE PRICE'].skew())
+sns.distplot(df['SALE PRICE'])
+Data distribusi sudah tidak terdapat skewness yang berarti sebaran data sudah normal
+missing_value = df.isnull().sum()/len(df)*100
+print(pd.DataFrame([missing_value[missing_value>0], pd.Series(df.isnull().sum()[df.isnull().sum()>1000])],
+                  index=['percent missing', 'num of missing']))
+df.agg(['skew','kurtosis']).transpose()
+plt.figure(figsize=(10,10))
+sns.heatmap(df.corr(), annot=True)
+plt.show()
+df.describe()
+Dari deskripsi statistik data diatas, dataset terlihat banyak memiliki outliers terutama data yang berhubungan dengan properti unit
+sns.boxplot(x='GROSS SQUARE FEET',data=df)
+plt.title('GROSS SQUARE FEET per property')
+plt.show()
+
+sns.boxplot(x='LAND SQUARE FEET',data=df)
+plt.title('LAND SQUARE FEET per property')
+plt.show()
+# untuk menghilangkan outliers, ambil data kurang dari 20000
+df = df[df['GROSS SQUARE FEET'] < 20000]
+df = df[df['LAND SQUARE FEET'] < 20000]
+
+sns.boxplot(x='GROSS SQUARE FEET',data=df)
+plt.title('GROSS SQUARE FEET per property')
+plt.show()
+
+sns.boxplot(x='LAND SQUARE FEET',data=df)
+plt.title('LAND SQUARE FEET per property')
+plt.show()
+
+# ploting menggunakan boxplot untuk melihat outliers
+sns.boxplot(x='RESIDENTIAL UNITS',data=df)
+plt.title('RESIDENTIAL UNITS')
+plt.show()
+
+sns.boxplot(x='COMMERCIAL UNITS',data=df)
+plt.title('COMMERCIAL UNITS')
+plt.show()
+
+sns.boxplot(x='TOTAL UNITS',data=df)
+plt.title('TOTAL UNITS')
+plt.show()
+# hapus data properti sisa yang memiliki nilai 0 unit total
+df = df[(df['TOTAL UNITS'] > 0) & (df['TOTAL UNITS'] < 30)]
+
+# hapus data dimana 'COMMERCIAL UNITS' + 'RESIDENTIAL UNITS' tidak sama dengan total units
+df = df[df['TOTAL UNITS'] == df['COMMERCIAL UNITS'] + df['RESIDENTIAL UNITS']]
+sns.boxplot(x='RESIDENTIAL UNITS',data=df)
+plt.title('RESIDENTIAL UNITS')
+plt.show()
+
+sns.boxplot(x='COMMERCIAL UNITS',data=df)
+plt.title('COMMERCIAL UNITS')
+plt.show()
+
+sns.boxplot(x='TOTAL UNITS',data=df)
+plt.title('TOTAL UNITS')
+plt.show()
+distribusi data sudah jauh lebih baik dari sebelumnya
+df['BOROUGH'] = df['BOROUGH'].astype(str)
+df['BOROUGH'] = df['BOROUGH'].str.replace("1", "Manhattan")
+df['BOROUGH'] = df['BOROUGH'].str.replace("2", "Bronx")
+df['BOROUGH'] = df['BOROUGH'].str.replace("3", "Brooklyn")
+df['BOROUGH'] = df['BOROUGH'].str.replace("4", "Queens")
+df['BOROUGH'] = df['BOROUGH'].str.replace("5", "Staten Island")
+
+df
+print(df['BUILDING CLASS CATEGORY'].mode())
+df['BUILDING CLASS CATEGORY'].value_counts()
+BUILDING CLASS CATEGORY yang paling banyak muncul pada dataset ini adalah ONE FAMILY DWELLINGS dengan jumlah total 12327
+df.var()
+## Hypothesis Testing
+df_borough = df.groupby('BOROUGH', axis=0).sum()
+df_borough
+Dengan melihat data diatas, apakah harga rata rata per unit pada borough Staten Island lebih besar secara signifikan daripada Bronx?
+
+* h0 = Tidak ada perbedaan secara signifikan pada harga rata rata perunit antara borough Staten Island dan Bronx
+* h1 = Terdapat perbedaan secara signifikan pada harga rata rata per unit antara borugh Staten Island dan Bronx
+Bronx = df[df['BOROUGH']=='Bronx']
+Staten_Island = df[df['BOROUGH']=='Staten Island']
+total_unit_Bronx = df_borough.iloc[0, 4]
+mu_Bronx = Bronx['SALE PRICE'].mean()
+std_Bronx = Bronx['SALE PRICE'].std()
+total_unit_Bronx, mu_Bronx, std_Bronx
+total_unit_SI = df_borough.iloc[-1, 4]
+mu_SI = Staten_Island['SALE PRICE'].mean()
+std_SI = Staten_Island['SALE PRICE'].std()
+total_unit_SI, mu_SI, std_SI
+from statsmodels.stats.weightstats import ztest
+ztest, pval= ztest(Staten_Island['SALE PRICE'],Bronx['SALE PRICE'])
+print("pval: ",float(pval))
+if pval<0.05:
+    print("reject null hypothesis")
+else:
+    print("accept null hypothesis")
+Dengan hasil ini dapat ditarik kesimpulan bahwa terdapat perbedaan yang cukup signifikan pada harga rata-rata per unit antara borugh Staten Island dengan Bronx
