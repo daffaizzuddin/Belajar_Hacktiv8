@@ -1,0 +1,367 @@
+# Assignment Python 3
+
+Link Repository : https://github.com/daffaizzuddin/Belajar_Hacktiv8.git
+
+## Project overview
+The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed.
+There are four datasets:
+* <strong>bank-additional-full.csv</strong>  with all examples (41188) and 20 inputs, ordered by date (from May 2008 to November 2010), very close to the data analyzed in [Moro et al., 2014]
+* <strong>bank-additional.csv</strong>  with 10% of the examples (4119), randomly selected from 1), and 20 inputs.
+* <strong>bank-full.csv</strong>  with all examples and 17 inputs, ordered by date (older version of this dataset with less inputs).
+* <strong>bank.csv</strong>  with 10% of the examples and 17 inputs, randomly selected from 3 (older version of this dataset with less inputs).
+
+* link dataset : <a href="https://archive.ics.uci.edu/ml/datasets/Bank+Marketing"> disini</a>
+
+The smallest datasets are provided to test more computationally demanding machine learning algorithms (e.g., SVM).
+The classification goal is to predict if the client will subscribe (yes/no) a term deposit (variable y).
+
+## Data Preparation
+import library
+import numpy as np
+import pandas as pd
+import random
+import warnings
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+warnings.filterwarnings("ignore")
+import seaborn as sns
+import matplotlib.pyplot as plt
+%matplotlib inline
+from sklearn.model_selection import GridSearchCV
+import dataset
+df=pd.read_csv("/Users/ASUS/Hacktiv8/data/bank-additional-full.csv",sep=';')
+df.head()
+df.tail()
+df.info()
+df.shape
+df.columns.values
+## EDA dan Pre-Processing
+Membuat barplot untuk mengkategorikan variabel
+categorcial_variables = ['job', 'marital', 'education', 'default', 'loan', 'contact', 'month', 'day_of_week', 'poutcome','y']
+for col in categorcial_variables:
+    plt.figure(figsize=(10,4))
+    sns.barplot(x=df[col].value_counts().values, y=df[col].value_counts().index)
+    plt.title(col)
+    plt.tight_layout()
+Membuat barplot untuk masing-masing hasil yang dihasilkan dengan melihat frekuensi relatifnya serta frekuensi relatif yang dinormalkan
+categorcial_variables = ['job', 'marital', 'education', 'default', 'loan', 'contact', 'month', 'day_of_week', 'poutcome','y']
+for col in categorcial_variables:
+    plt.figure(figsize=(10,4))
+    #Returns counts of unique values for each outcome for each feature.
+    pos_counts = df.loc[df.y.values == 'yes', col].value_counts() 
+    neg_counts = df.loc[df.y.values == 'no', col].value_counts()
+    
+    all_counts = list(set(list(pos_counts.index) + list(neg_counts.index)))
+    
+    #Counts of how often each outcome was recorded.
+    freq_pos = (df.y.values == 'yes').sum()
+    freq_neg = (df.y.values == 'no').sum()
+    
+    pos_counts = pos_counts.to_dict()
+    neg_counts = neg_counts.to_dict()
+    
+    all_index = list(all_counts)
+    all_counts = [pos_counts.get(k, 0) / freq_pos - neg_counts.get(k, 0) / freq_neg for k in all_counts]
+
+    sns.barplot(x=all_counts, y=all_index)
+    plt.title(col)
+    plt.tight_layout()
+Membuat pie chart
+plt.figure(figsize=(10,10))
+df['y'].value_counts().plot.pie(shadow=True,autopct='%1.2f%%')
+plt.title("Percentage of Subcription")
+plt.legend()
+plt.show()
+Buat cross def tab untuk EDA
+def cross_tab(df,f1,f2):
+    jobs=list(df[f1].unique())
+    edu=list(df[f2].unique())
+    dataframes=[]
+    for e in edu:
+        dfe=df[df[f2]==e]
+        dfejob=dfe.groupby(f1).count()[f2]
+        dataframes.append(dfejob)
+    xx=pd.concat(dataframes,axis=1)
+    xx.columns=edu
+    xx=xx.fillna(0)
+    return xx
+Membuat cross tab untuk variable job and education 
+cross_tab(df,'job','education')
+Mengisi 'unknown' data dengan relevan data
+df.loc[(df['age']>60) & (df['job']=='unknown'), 'job'] = 'retired'
+df.loc[(df['education']=='unknown') & (df['job']=='management'), 'education'] = 'university.degree'
+df.loc[(df['education']=='unknown') & (df['job']=='services'), 'education'] = 'high.school'
+df.loc[(df['education']=='unknown') & (df['job']=='housemaid'), 'education'] = 'basic.4y'
+df.loc[(df['job'] == 'unknown') & (df['education']=='basic.4y'), 'job'] = 'blue-collar'
+df.loc[(df['job'] == 'unknown') & (df['education']=='basic.6y'), 'job'] = 'blue-collar'
+df.loc[(df['job'] == 'unknown') & (df['education']=='basic.9y'), 'job'] = 'blue-collar'
+df.loc[(df['job']=='unknown') & (df['education']=='professional.course'), 'job'] = 'technician'
+Cek data apakah sudah terisi dengan cross tab
+cross_tab(df,'job','education')
+Membu atcross tab untuk variabel job dan housing 
+cross_tab(df,'job','housing')
+Dikarenakan data 'unknown' terlalu banyak, jadi dihapus
+df = df[df.housing != 'unknown']
+df = df[df.loan != 'unknown']
+df = df[df.default != 'unknown']
+df = df[df.job != 'unknown']
+df = df[df.marital != 'unknown']
+df = df[df.education != 'unknown']
+Melihat shape dari dataset setelah preprocessing
+df.shape
+Cek missing value
+df.isnull().sum()
+Cek duplicates value
+df.duplicated().sum()
+Drop duplicates value
+df.drop_duplicates(inplace=True)
+Melihat statistik deskriptif variabel numerik
+numerical_variables = ['age','campaign', 'pdays', 'previous', 'emp.var.rate', 'cons.price.idx','cons.conf.idx','euribor3m',
+                      'nr.employed']
+df[numerical_variables].describe()
+Membuat histogram plot untuk pdays dengan dan tidak dengan nilai '999' 
+def drawhist(df,feature):
+    plt.hist(df[feature])
+drawhist(df,'pdays')
+plt.show()
+
+plt.hist(df.loc[df.pdays != 999, 'pdays'])
+plt.show()
+Ditemukan terlalu banyak nilai '999', dianggap sebagai missing value, kemudian diubah menjadi categorical variable
+df['pdays_missing'] = 0
+df['pdays_less_5'] = 0
+df['pdays_greater_15'] = 0
+df['pdays_bet_5_15'] = 0
+df['pdays_missing'][df['pdays']==999] = 1
+df['pdays_less_5'][df['pdays']<5] = 1
+df['pdays_greater_15'][(df['pdays']>15) & (df['pdays']<999)] = 1
+df['pdays_bet_5_15'][(df['pdays']>=5)&(df['pdays']<=15)]= 1
+Drop durasi dan kolom pdays 
+col = ['duration', 'pdays']
+df.drop(col, axis=1,inplace=True)
+Melihat tabel 5 teratas pada dataset
+df.head()
+Encode variabel kategori dengan encoder label
+object_cols = ['job','marital','education','default','housing','loan','contact','month','day_of_week','poutcome','y']
+label_encoder = LabelEncoder()
+for col in object_cols:
+    df[col] = label_encoder.fit_transform(df[col])
+df.head()
+Melihat list header
+df.columns.values
+Membuat def code untuk visualisasi
+def drawheatmap(df):
+    '''Builds the heat map for the given data'''
+    f, ax = plt.subplots(figsize=(15, 15))
+    sns.heatmap(df.corr(method='spearman'), annot=False, cmap='coolwarm')
+    
+def drawhist(df,feature):
+    '''Draws an histogram for a feature in a data frame (df)'''
+    plt.hist(df[feature])
+
+def functionreplace(df,fea,val1,val2):
+    '''Replaces value (val1) with value (val2) in the data frame (df) for a feature (fea)'''
+    df[fea].replace(val1,val2)
+    return df
+
+def drawbarplot(df,x,y):
+    '''Draws a bar plot for a given feature x and y in a data frame'''
+    sns.barplot(x=x, y=y, data=df)
+    
+Membuat heat map untuk clean data
+drawheatmap(df)
+inisialisasi clean data
+df_clean = df
+## Data Partition dan SMOTE
+Membuat data partisi untuk pemodelan
+from sklearn.model_selection import train_test_split
+
+##partition data into data training and data testing
+train,test = train_test_split(df_clean,test_size = 0.20 ,random_state = 111)
+    
+##seperating dependent and independent variables on training and testing data
+train_X = train.drop(labels='y',axis=1)
+train_Y = train['y']
+test_X  = test.drop(labels='y',axis=1)
+test_Y  = test['y']
+Overcoming data imbalance with SMOTE
+from imblearn.over_sampling import SMOTE
+
+os = SMOTE(sampling_strategy='minority',random_state = 123,k_neighbors=5)
+train_smote_X,train_smote_Y = os.fit_resample(train_X,train_Y)
+train_smote_X = pd.DataFrame(data = train_smote_X,columns=train_X.columns)
+train_smote_Y = pd.DataFrame(data = train_smote_Y)
+## Modelling
+Menggunakan 6 algoritma yang berbeda untuk menemukan model evaluasi mana yang terbaik. 
+1. Logistic Regression
+2. K-Nearest Neightbors
+3. Support Vector Machine
+4. Decision Tree
+5. Random Forest
+6. Naive Bayes. 
+
+6 algoritma diatas merupakan algoritma untuk menangani kasus klasifikasi pada machine learning.
+from sklearn.model_selection import GridSearchCV
+### Logistic Regression
+from sklearn import linear_model, decomposition
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix
+Inisialisasi paramenter dari LogReg model
+model = LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,
+                   intercept_scaling=1, l1_ratio=None, max_iter=100,
+                   multi_class='auto', n_jobs=None, penalty='l2',
+                   random_state=0, solver='liblinear', tol=0.0001, verbose=0,
+                   warm_start=False)
+Mencocokan model dengan train smote data
+model.fit(train_smote_X, train_smote_Y)
+Menampilkan intersep dan koefisien model
+print(model.intercept_, model.coef_)
+Membuat perdiksi untuk test data
+pred1 = model.predict(test_X)
+Evaluasi model dengan confusion matrix
+confusion_matrix(test_Y, pred1)
+Evaluasi model dengan accuracy score
+from sklearn.metrics import accuracy_score
+print("Akurasi untuk Logistic Regression: ",
+      accuracy_score(test_Y,pred1))
+### K-Nearest Neighbors
+Import library KNN
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier()
+Inisialisasi parameter untuk menyetel pencarian grid hyperparameter CV
+grid_param2 = {
+    'n_neighbors': [5,15,35], 
+    'weights': ['uniform', 'distance'], 
+    'metric': ['euclidean','manhattan']
+    }
+Sesuaikan model dengan penyetelan hyperparameter grid search CV untuk mendapatkan parameter optimal.
+gs2 = GridSearchCV(estimator=knn,
+                    param_grid=grid_param2,
+                    scoring='accuracy',
+                    cv=3)
+gs2.fit(train_smote_X,train_smote_Y)
+best_parameters2 = gs2.best_params_
+print(best_parameters2)
+Menemukan parameter terbaik adalah metric='manhattan',n_neighbors=5, weights='distance. Untuk mempersingkat waktu, melakukan pemodelan dengan parameter optimal yang diperoleh tadi.
+model2 = KNeighborsClassifier(metric='manhattan',n_neighbors=5, weights='distance')
+Menyesuaikan model dengan train smote data
+model2.fit(train_smote_X, train_smote_Y)
+Membuat prediksi untuk test data
+pred2=model2.predict(test_X)
+Evaluasi model dengan accuracy score
+from sklearn.metrics import accuracy_score
+print("Accuracy for KNN: ",
+      accuracy_score(test_Y,pred2))
+Evaluasi model dengan confusion matrix
+CF2=confusion_matrix(test_Y, pred2)
+CF2
+### Support Vector Machine
+Import library untuk SVM
+from sklearn.svm import SVC
+from sklearn import svm 
+esviem = SVC()
+Inisialisasi model
+clf = svm.SVC(kernel='linear')
+Menyesuaikan model dengan train smote data
+clf.fit(train_smote_X,train_smote_Y)
+Membuat pediksi untuk test data
+pred3=clf.predict(test_X)
+Evaluasi model dengan confusion matrix
+CF3=confusion_matrix(test_Y, pred3)
+CF3
+Evaluasi model dengan accuracy score
+print("Accuracy for SVM: ",
+      accuracy_score(test_Y,pred3))
+### Decision Tree
+Import library yang digunakan untuk Decision Tree
+from sklearn.tree import DecisionTreeClassifier
+dec_tree = DecisionTreeClassifier()
+Inisialisasi parameters untuk hyperparameter grid search CV
+grid_param4 = {
+   'max_depth': [10,20,100],  
+   'criterion': ['gini','entropy']
+   }
+Menyesualikan model dengan tuning hyperparameter grid search CV untuk memperoleh parameter yang optimal
+gs4 = GridSearchCV(estimator=dec_tree,
+                     param_grid=grid_param4,
+                     scoring='accuracy',
+                     cv=3)
+gs4.fit(train_smote_X,train_smote_Y)
+best_parameters4 = gs4.best_params_
+print(best_parameters4)
+Ditemukan parameter terbaik adalah criteria='entropy',max_depth=100. 
+model4 = DecisionTreeClassifier(criterion='entropy',max_depth=100)
+model4.fit(train_smote_X,train_smote_Y)
+Membuat prediksi untuk test data
+pred4=model4.predict(test_X)
+Evaluasi model dengan accuracy score
+print("Accuracy for Decision Tree: ",
+      accuracy_score(test_Y,pred4))
+Evaluasi model dengan confusion matrix
+CF4=confusion_matrix(test_Y, pred4)
+CF4
+### Random Forest
+Import library yang digunakan untuk Random Forest
+from sklearn.ensemble import RandomForestClassifier
+rfc=RandomForestClassifier(random_state=123)
+Inisialisasi parameter untuk hyperparameter grid search CV
+param_grid = { 
+    'n_estimators': [200, 1000],
+    'max_features': ['auto','log2'],
+    'criterion' :['entropy','gini']
+}
+Menyesuaikan model untuk  hyperparameter grid search CV untuk mendapatkan optimal paramenter.
+CV_rfc = GridSearchCV(estimator=rfc, 
+                      param_grid=param_grid, 
+                      cv= 3)
+CV_rfc.fit(train_smote_X, train_smote_Y)
+best_parameters5 = CV_rfc.best_params_
+print(best_parameters5)
+Ditemukan parameter terbaik adalah criteria='entropy',max_features='auto',n_estimators=1000. 
+model5 = RandomForestClassifier(criterion='entropy',max_features='auto',n_estimators=1000)
+model5.fit(train_smote_X,train_smote_Y)
+Make prediksi untuk test data
+pred5=model5.predict(test_X)
+Evaluasi model dengan accuracy score
+from sklearn.metrics import accuracy_score
+print("Accuracy for Random Forest: ",accuracy_score(test_Y,pred5))
+Evaluasi model dengan confusion matrix
+from sklearn.metrics import confusion_matrix
+CF=confusion_matrix(test_Y, pred5)
+CF
+### Naive Bayes
+Import library untuk Naive Bayes
+from sklearn.naive_bayes import GaussianNB
+gnb = GaussianNB()
+Meneysuaikan model dengan train smote data
+gnb.fit(train_smote_X, train_smote_Y)
+Membuat prediksi untuk test data
+pred6 = gnb.predict(test_X)
+Evaluasi model dengan accuracy score
+#Import scikit-learn metrics module for accuracy calculation
+from sklearn import metrics
+
+# Model Accuracy, how often is the classifier correct?
+print("Accuracy for Naive Bayes:",metrics.accuracy_score(test_Y, pred6))
+Evaluasi model dengan confusion matrix
+from sklearn.metrics import confusion_matrix
+CF6=confusion_matrix(test_Y, pred6)
+CF6
+## Load Model
+print("Accuracy for Logistic Regression: ",
+      accuracy_score(test_Y,pred1))
+print("Accuracy for KNN: ",
+      accuracy_score(test_Y,pred2))
+print("Accuracy for SVM: ",
+       accuracy_score(test_Y,pred3))
+print("Accuracy for Decision Tree: ",
+      accuracy_score(test_Y,pred4))
+print("Accuracy for Random Forest: ",
+      accuracy_score(test_Y,pred5))
+print("Accuracy for Naive Bayes:",
+      metrics.accuracy_score(test_Y, pred6))
+## Analisis Algoritma
+
+1. Dari segi **akurasi** Random Forest tampil menjadi model terbaik dengan nilai 0.87
+2. KNN memberikan performa akurasi paling rendah
